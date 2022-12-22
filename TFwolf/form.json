@@ -1,0 +1,13 @@
+{
+	"elements":
+	[
+		{"type": "Label", "caption": "Duscherkennung bei Temperatursturz von X Grad:"},
+		{ "type": "NumberSpinner", "name": "tempJump", "caption": "Temperatursturz Duschen", "digits": 1},
+		{"type": "Label", "caption": "Duscherkennung bei Wassertemperatur von X Grad wieder abschalten:"},
+		{ "type": "NumberSpinner", "name": "tempShowerOff", "caption": "Abschalttemperatur Duscherkennung", "digits": 1}
+	],
+	"actions":
+	[
+		{ "type": "Button", "label": "Test", "onClick": "TFW_Test($id);" }
+	]
+}

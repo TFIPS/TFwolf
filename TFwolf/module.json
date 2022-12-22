@@ -1,0 +1,14 @@
+{
+	"id": "{ED2C9AE2-F0C3-44BD-9085-1B48F5EEE17C}",
+	"name": "TFwolf",
+	"type": 3,
+	"vendor": "WOLF GmbH",
+	"aliases":
+    [
+        "Wolf BM1"
+    ],
+	"parentRequirements": ["{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}"],
+	"childRequirements": [],
+	"implemented": ["{7F7632D9-FA40-4F38-8DEA-C83CD4325A32}"],
+	"prefix": "TFW"
+}
