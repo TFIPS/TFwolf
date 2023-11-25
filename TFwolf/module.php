@@ -5,6 +5,9 @@ class TFwolf extends IPSModule
 	{
         parent::Create();
         $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
+
+		$this->RegisterPropertyString("deviceTopic", "tfebus");
+
 		if (!IPS_VariableProfileExists('TFC.deviceState')) 
 		{
 			IPS_CreateVariableProfile('TFC.deviceState', 1);
@@ -14,6 +17,18 @@ class TFwolf extends IPSModule
 			IPS_SetVariableProfileAssociation('TFC.deviceState', 2, 'Verbunden', 'Plug', 0xFFFF00);
 			IPS_SetVariableProfileAssociation('TFC.deviceState', 3, 'Wartet', 'Sleep', 0xFFFF00);
 			IPS_SetVariableProfileAssociation('TFC.deviceState', 4, 'Aktiv', 'Repeat', 0x00FF00);
+		}
+		if (!IPS_VariableProfileExists('TFW.actState')) 
+		{
+			IPS_CreateVariableProfile('TFW.actState', 1);
+			IPS_SetVariableProfileIcon ('TFW.actState', 'ArrowRight');
+			IPS_SetVariableProfileAssociation('TFW.actState', 0, 'Nicht Heizen ohne Wasser (Standby)', 'Power', -1);
+			IPS_SetVariableProfileAssociation('TFW.actState', 1, 'Nicht Heizen mit Wasser (Sommer)', 'Sun', -1);
+			IPS_SetVariableProfileAssociation('TFW.actState', 2, 'Absenken ohne Wassser', 'Moon', -1);
+			IPS_SetVariableProfileAssociation('TFW.actState', 3, 'Absenken mit Wasser', 'Tap', -1);
+			IPS_SetVariableProfileAssociation('TFW.actState', 4, 'Heizen ohne Wasser', 'Radiator', -1);
+			IPS_SetVariableProfileAssociation('TFW.actState', 5, 'Heizen mit Wasser', 'Flame', -1);
+			IPS_SetVariableProfileAssociation('TFW.actState', 6, 'Dusche', 'Shower', -1);
 		}
         if (!IPS_VariableProfileExists('TFW.stateBM')) 
 		{
@@ -91,6 +106,7 @@ class TFwolf extends IPSModule
     public function ApplyChanges()
 	{
         parent::ApplyChanges();
+		$actState_ID	= $this->RegisterVariableInteger("actState", "Aktueller Mode (Soll)", "TFW.actState", 10);
 		// 5022
 		$stateBM_ID		= $this->RegisterVariableInteger("stateBM", "Betriebsart", "TFW.stateBM", 11);
 		$tempSW_ID		= $this->RegisterVariableFloat("tempSW", "Sommer- / Winterumschaltung", "~Temperature", 12);
@@ -236,8 +252,8 @@ class TFwolf extends IPSModule
 						if(!$data[2] && $data[0])
 						{
 							$this->RequestAction("stateBM", 3);
-							//$state = "Heizen (DUSCHE)";
-							//if($this->GetValue("actState") != $state) {$this->SetValue("actState", $state); }
+							$actState = "Heizen (DUSCHE)";
+							if($this->GetValue("actState") != 6) {$this->SetValue("actState", 6); }
 						}
 						if($data[2] && !$data[0])
 						{
@@ -255,11 +271,11 @@ class TFwolf extends IPSModule
 							{
 								$sek = $data[3] - $data[4];
 								$jump= $data[2] - $data[0];
-								//$this->SetValue("TempSek", $sek); #TEST
-								if($jump > 0 && $jump >= $this->ReadPropertyFloat("tempJump") && $data[0] < $this->ReadPropertyFloat("tempShowerOff") && !$this->GetValue("shower"))
+								$this->SetValue("TempSek", $sek); #TEST
+								if($jump > 0 && $jump >= $this->ReadPropertyFloat("tempJump") && $jump < 6 && $data[0] < $this->ReadPropertyFloat("tempShowerOff") && !$this->GetValue("shower") && $this->GetValue("stateBM") != 3)
 								{
 									$this->SetValue("shower", true);
-									//$this->SetValue("TempJump", $jump); # TEST
+									$this->SetValue("TempJump", $jump); # TEST
 								}
 							}	 
 						}
@@ -267,6 +283,7 @@ class TFwolf extends IPSModule
 					case "deviceState":
 						if($data[0] == 4 && $data[0] != $data[2])
 						{
+							// Wenn TFeBus-Adapter wieder Aktiv ist
 							$this->WSet('hw', 3);
 						}
 					break;
@@ -401,8 +418,8 @@ class TFwolf extends IPSModule
 							if($this->GetValue("stateBM") != 1) 	{ $this->RequestAction("stateBM", 1); }
 							if($this->GetValue("curTimePrg") != 0) 	{ $this->RequestAction("curTimePrg", 0); }
 							
-							//$state = "Nicht Heizen ohne Wasser -> Standby";
-							//if($this->GetValue("actState") != $state) {$this->SetValue("actState", $state); }
+							$actState = "Nicht Heizen ohne Wasser -> Standby";
+							if($this->GetValue("actState") != 0) {$this->SetValue("actState", 0); }
 						break;
 						case 1: //Nicht Heizen mit Wasser -> Sommer
 							$this->SendCMD("setPH1_1_B1", 8080);
@@ -413,8 +430,8 @@ class TFwolf extends IPSModule
 							if($this->GetValue("stateBM") != 5) 	{ $this->RequestAction("stateBM", 5); }
 							if($this->GetValue("curTimePrg") != 0) 	{ $this->RequestAction("curTimePrg", 0); }
 							
-							//$state = "Nicht Heizen mit Wasser -> Sommer";
-							//if($this->GetValue("actState") != $state) {$this->SetValue("actState", $state); }
+							$actState = "Nicht Heizen mit Wasser -> Sommer";
+							if($this->GetValue("actState") != 1) {$this->SetValue("actState", 1); }
 						break;
 					}
 				break;
@@ -430,8 +447,8 @@ class TFwolf extends IPSModule
 							if($this->GetValue("stateBM") != 2) 	{ $this->RequestAction("stateBM", 2); }
 							if($this->GetValue("curTimePrg") != 0) 	{ $this->RequestAction("curTimePrg", 0); }
 
-							//$state = "Heizen ohne Wasser";
-							//if($this->GetValue("actState") != $state) {$this->SetValue("actState", $state); }
+							$actState = "Heizen ohne Wasser";
+							if($this->GetValue("actState") != 4) {$this->SetValue("actState", 4); }
 						break;
 						case 1: //Heizen mit Wasser
 							$this->SendCMD("setPH1_1_B1", 6000);
@@ -442,8 +459,8 @@ class TFwolf extends IPSModule
 							if($this->GetValue("stateBM") != 2) 	{ $this->RequestAction("stateBM", 2); }
 							if($this->GetValue("curTimePrg") != 0) 	{ $this->RequestAction("curTimePrg", 0); }
 
-							//$state = "Heizen mit Wasser";
-							//if($this->GetValue("actState") != $state) {$this->SetValue("actState", $state); }
+							$actState = "Heizen mit Wasser";
+							if($this->GetValue("actState") != 5) {$this->SetValue("actState", 5); }
 						break;
 					}
 				break;
@@ -459,8 +476,8 @@ class TFwolf extends IPSModule
 							if($this->GetValue("stateBM") != 2) 	{ $this->RequestAction("stateBM", 2); }
 							if($this->GetValue("curTimePrg") != 0) 	{ $this->RequestAction("curTimePrg", 0); }
 
-							//$state = "Absenken ohne Wassser";
-							//if($this->GetValue("actState") != $state) {$this->SetValue("actState", $state); }
+							$actState = "Absenken ohne Wassser";
+							if($this->GetValue("actState") != 2) {$this->SetValue("actState", 2); }
 						break;
 						case 1: //Absenken mit Wasser
 							$this->SendCMD("setPH1_1_B1", 8080);
@@ -471,8 +488,8 @@ class TFwolf extends IPSModule
 							if($this->GetValue("stateBM") != 2) 	{ $this->RequestAction("stateBM", 2); }
 							if($this->GetValue("curTimePrg") != 0) 	{ $this->RequestAction("curTimePrg", 0); }
 
-							//$state = "Absenken mit Wasser";
-							//if($this->GetValue("actState") != $state) {$this->SetValue("actState", $state); }
+							$actState = "Absenken mit Wasser";
+							if($this->GetValue("actState") != 3) {$this->SetValue("actState", 3); }
 						break;
 					}
 				break;
@@ -522,67 +539,24 @@ class TFwolf extends IPSModule
 		$this->WSet('hw', 3);
 	}
 		
-    public function ReceiveData($JSONString)
+	public function ReceiveData($JSONString)
     {
 		$data = json_decode($JSONString, true);
 		if($data['DataID'] == '{7F7632D9-FA40-4F38-8DEA-C83CD4325A32}')
 		{
-			$deviceTopic	= "tfebus";
+			$deviceTopic	= $this->ReadPropertyString("deviceTopic");
 			$topic			= explode('/', $data['Topic']);
 			
 			if($topic[0] == $deviceTopic)
 			{
-				//$this->SendDebug($topic[1], $data["Payload"], 0);
-				$valueData = json_decode($data["Payload"], true);
-
 				switch($topic[1])
 				{
-					// STATE
-					case "state" 		:
-						if(isset($valueData["cloudState"]))
+					case "eBusData":
+						$this->SendDebug("eBusData", $data["Payload"], 0);
+						$eBusData = json_decode($data["Payload"], true);
+						if(array_key_exists('getStateBM', $eBusData))
 						{
-							switch($valueData["cloudState"])
-							{
-								case 'offline' 		: $cloudState = 0; break;
-								case 'online' 		: $cloudState = 1; break;
-								case 'maintenance' 	: $cloudState = 2; break;
-							}
-						}
-						if(isset($valueData["deviceState"]))
-						{
-							switch($valueData["deviceState"])
-							{
-								case 'ban' 			: $deviceState = 0; break;
-								case 'offline' 		: $deviceState = 1; break;
-								case 'connected'	: $deviceState = 2; break;
-								case 'waiting'		: $deviceState = 3; break;
-								case 'active'		: $deviceState = 4; break;
-							}
-							$deviceState != $this->GetValue("deviceState") ? $this->SetValue("deviceState", $deviceState) : 1;
-						}
-						if(isset($valueData["fVersion"]))
-						{
-							$valueData["fVersion"] != $this->GetValue("fVersion") ? $this->SetValue("fVersion", $valueData["fVersion"]) : 1;
-						}
-						if(isset($valueData["ipAddress"]))
-						{
-							$valueData["ipAddress"] != $this->GetValue("ipAddress") ? $this->SetValue("ipAddress", $valueData["ipAddress"]) : 1;
-						}
-						if(isset($valueData["wlanSignal"]))
-						{
-							$valueData["wlanSignal"] != $this->GetValue("wlanSignal") ? $this->SetValue("wlanSignal", $valueData["wlanSignal"]) : 1;
-						}
-						if(isset($valueData["uptime"]))
-						{
-							$valueData["uptime"] != $this->GetValue("uptime") ? $this->SetValue("uptime", $valueData["uptime"]) : 1;
-						}
-					break;
-					// TFeBus Data
-					case "tfEbusData" 		:
-						// 5022
-						if(isset($valueData["getStateBM"]))
-						{
-							switch($valueData["getStateBM"])
+							switch($eBusData["getStateBM"])
 							{
 								case '00' : $valueBM = 0;break;
 								case '01' : $valueBM = 1;break;
@@ -592,156 +566,76 @@ class TFwolf extends IPSModule
 								case '05' : $valueBM = 5;break;
 								case '0e' :	$valueBM = 14;break;
 							}
-							$this->GetValue("stateBM") != $valueBM ? $this->SetValue("stateBM", $valueBM) : 1;
-						}
+							$this->SetValue("stateBM", $valueBM);
 
-						if(isset($valueData["getTempSW"]))
-						{
-							$valueData["getTempSW"] 	!= $this->GetValue("tempSW") 	? $this->SetValue("tempSW", $valueData["getTempSW"]) 	: 1;
 						}
-						
-						if(isset($valueData["getTempDay"]))
-						{
-							$valueData["getTempDay"] 	!= $this->GetValue("tempDay")	? $this->SetValue("tempDay", $valueData["getTempDay"]) 	: 1;
-						}
+						array_key_exists('getTempSW', $eBusData) ? $this->SetValue("tempSW", $eBusData["getTempSW"]) : 1;
+						array_key_exists('getTempDay', $eBusData) ? $this->SetValue("tempDay", $eBusData["getTempDay"]) : 1;
+						array_key_exists('getTempEco', $eBusData) ? $this->SetValue("tempEco", $eBusData["getTempEco"]) : 1;
+						array_key_exists('getTempRoom', $eBusData) ? $this->SetValue("tempRoom", $eBusData["getTempRoom"]) : 1;
+						array_key_exists('getTempKS', $eBusData) ? $this->SetValue("tempKS", $eBusData["getTempKS"]) : 1;
+						array_key_exists('getTempKI', $eBusData) ? $this->SetValue("tempKI", $eBusData["getTempKI"]) : 1;
+						array_key_exists('getCurTimePrg', $eBusData) ? $this->SetValue("curTimePrg", $eBusData["getCurTimePrg"]) : 1;
+						array_key_exists('getBurnerH', $eBusData) ? $this->SetValue("burnerH", $eBusData["getBurnerH"]) : 1;
+						array_key_exists('getBurnerS', $eBusData) ? $this->SetValue("burnerS", $eBusData["getBurnerS"]) : 1;
+						array_key_exists('getOnH', $eBusData) ? $this->SetValue("onH", $eBusData["getOnH"]) : 1;
+						array_key_exists('getTempA', $eBusData) ? $this->SetValue("tempA", $eBusData["getTempA"]) : 1;
+						array_key_exists('getTempWW', $eBusData) ? $this->SetValue("tempWW", $eBusData["getTempWW"]) : 1;
+						array_key_exists('getTempWWS', $eBusData) ? $this->SetValue("tempWWS", $eBusData["getTempWWS"]) : 1;
+						array_key_exists('tempWWI', $eBusData) ? $this->SetValue("tempWWI", $eBusData["tempWWI"]) : 1;
 
-						if(isset($valueData["getTempEco"]))
+						if(array_key_exists('valuesF', $eBusData))
 						{
-							$valueData["getTempEco"] 	!= $this->GetValue("tempEco")	? $this->SetValue("tempEco", $valueData["getTempEco"]) 	: 1;
-						}
-
-						if(isset($valueData["getTempRoom"]))
-						{
-							$valueData["getTempRoom"]	!= $this->GetValue("tempRoom")	? $this->SetValue("tempRoom", $valueData["getTempRoom"]): 1;
-						}
-
-						if(isset($valueData["getTempKS"]))
-						{
-							$valueData["getTempKS"] 	!= $this->GetValue("tempKS") 	? $this->SetValue("tempKS", $valueData["getTempKS"]) 	: 1;
-						}
-						
-						if(isset($valueData["getTempKI"]))
-						{
-							$valueData["getTempKI"] 	!= $this->GetValue("tempKI") 	? $this->SetValue("tempKI", $valueData["getTempKI"]) 	: 1;
-						}
-
-						if(isset($valueData["getCurTimePrg"]))
-						{
-							$valueData["getCurTimePrg"]	!= $this->GetValue("curTimePrg")? $this->SetValue("curTimePrg", $valueData["getCurTimePrg"]): 1;
-						}
-						
-						if(isset($valueData["getBurnerH"]))
-						{
-							$valueData["getBurnerH"]	!= $this->GetValue("burnerH")	? $this->SetValue("burnerH", $valueData["getBurnerH"]) 	: 1;
-						}
-
-						if(isset($valueData["getBurnerS"]))
-						{
-							$valueData["getBurnerS"]  	!= $this->GetValue("burnerS")	? $this->SetValue("burnerS", $valueData["getBurnerS"]) 	: 1;
-						}
-
-						if(isset($valueData["getOnH"]))
-						{
-							$valueData["getOnH"]		!= $this->GetValue("onH")		? $this->SetValue("onH", $valueData["getOnH"]) 			: 1;
-						}
-
-						if(isset($valueData["getTempA"]))
-						{
-							$valueData["getTempA"]		!= $this->GetValue("tempA") ? $this->SetValue("tempA", $valueData["getTempA"]) 			: 1;
-						}
-
-						if(isset($valueData["getTempWW"]))
-						{
-							$valueData["getTempWW"] 	!= $this->GetValue("tempWW") ? $this->SetValue("tempWW", $valueData["getTempWW"]) 		: 1;
-						}
-						
-						if(isset($valueData["getTempWWS"]))
-						{
-							$valueData["getTempWWS"] 	!= $this->GetValue("tempWWS") ? $this->SetValue("tempWWS", $valueData["getTempWWS"]) 	: 1;
-						}
-						
-						if(isset($valueData["tempWWI"]))
-						{
-							$valueData["tempWWI"] 		!= $this->GetValue("tempWWI") ? $this->SetValue("tempWWI", $valueData["tempWWI"]) 		: 1;
-						}
-
-						if(isset($valueData["valuesF"]))
-						{
-							$valuesF	= str_split($valueData["valuesF"]);
+							$valuesF	= str_split($eBusData["valuesF"]);
 							$uwp 		= boolval($valuesF[1]);
 							$flame 		= boolval($valuesF[4]);
-							$this->GetValue("uwp") 		!= $uwp 	? $this->SetValue("uwp", $uwp) 		: 1;
-							$this->GetValue("flame")	!= $flame 	? $this->SetValue("flame", $flame) 	: 1;
+							$this->SetValue("uwp", $uwp);
+							$this->SetValue("flame", $flame);
 						}
 
-						if(isset($valueData["valuesBM"]))
+						if(array_key_exists('valuesBM', $eBusData))
 						{
-							$valuesBM	= str_split($valueData["valuesBM"], 2);
+							$valuesBM	= str_split($eBusData["valuesBM"], 2);
 							$time 		= $valuesBM[0].':'.$valuesBM[1];
 							$weekday 	= $valuesBM[2];
 
-							$this->GetValue("time") != $time ? $this->SetValue("time", $time) : 1;
-							$this->GetValue("weekday") != $weekday ? $this->SetValue("weekday", $weekday) : 1;
+							$this->SetValue("time", $time);
+							$this->SetValue("weekday", $weekday);
 						}
-
-						if(isset($valueData["valuesH"]))
+						
+						if(array_key_exists('valuesH', $eBusData))
 						{
-							$valuesH	= str_split($valueData["valuesH"], 2);						
+							$valuesH	= str_split($eBusData["valuesH"], 2);						
 							switch($valuesH[0])
 							{
-								case "00" : $this->GetValue("heating") != 0 ? $this->SetValue("heating", 0) : 1; break; // Brenner ausschalten
-								case "01" : $this->GetValue("heating") != 1 ? $this->SetValue("heating", 1) : 1; break; // Keine Aktion
-								case "55" : $this->GetValue("heating") != 2 ? $this->SetValue("heating", 2) : 1; break; // Brauchwasserbereitung
-								case "AA" : $this->GetValue("heating") != 3 ? $this->SetValue("heating", 3) : 1; break; // Heizbetrieb
-								case "CC" : $this->GetValue("heating") != 4 ? $this->SetValue("heating", 4) : 1; break; // Emissionskontrolle
-								case "DD" : $this->GetValue("heating") != 5 ? $this->SetValue("heating", 5) : 1; break; // TÜV-Funktion
-								case "EE" : $this->GetValue("heating") != 6 ? $this->SetValue("heating", 6) : 1; break; // Reglerstop-Funktion
-								case "66" : $this->GetValue("heating") != 7 ? $this->SetValue("heating", 7) : 1; break; // Brauchwasserbereitung bei Reglerstop
-								case "BB" : $this->GetValue("heating") != 8 ? $this->SetValue("heating", 8) : 1; break; // Brauchwasserbereitung bei Heizbetrieb
-								case "44" : $this->GetValue("heating") != 9 ? $this->SetValue("heating", 9) : 1; break; // Reglerstop-Funktion bei stufigem Betrieb
+								case "00" : $this->SetValue("heating", 0); break; // Brenner ausschalten
+								case "01" : $this->SetValue("heating", 1); break; // Keine Aktion
+								case "55" : $this->SetValue("heating", 2); break; // Brauchwasserbereitung
+								case "AA" : $this->SetValue("heating", 3); break; // Heizbetrieb
+								case "CC" : $this->SetValue("heating", 4); break; // Emissionskontrolle
+								case "DD" : $this->SetValue("heating", 5); break; // TÜV-Funktion
+								case "EE" : $this->SetValue("heating", 6); break; // Reglerstop-Funktion
+								case "66" : $this->SetValue("heating", 7); break; // Brauchwasserbereitung bei Reglerstop
+								case "BB" : $this->SetValue("heating", 8); break; // Brauchwasserbereitung bei Heizbetrieb
+								case "44" : $this->SetValue("heating", 9); break; // Reglerstop-Funktion bei stufigem Betrieb
 							}
 							switch($valuesH[1])
 							{
-								case "00" : $this->GetValue("customer") != 0 ? $this->SetValue("customer", 0) : 1; break; // Keine Aktion
-								case "01" : $this->GetValue("customer") != 1 ? $this->SetValue("customer", 1) : 1; break; // Ausschalten Kesselpumpe
-								case "02" : $this->GetValue("customer") != 2 ? $this->SetValue("customer", 2) : 1; break; // Einschalten Kesselpumpe
-								case "03" : $this->GetValue("customer") != 3 ? $this->SetValue("customer", 3) : 1; break; // Ausschalten variabler Verbraucher
-								case "04" : $this->GetValue("customer") != 4 ? $this->SetValue("customer", 4) : 1; break; // Einschalten variabler Verbraucher
+								case "00" : $this->SetValue("customer", 0); break; // Keine Aktion
+								case "01" : $this->SetValue("customer", 1); break; // Ausschalten Kesselpumpe
+								case "02" : $this->SetValue("customer", 2); break; // Einschalten Kesselpumpe
+								case "03" : $this->SetValue("customer", 3); break; // Ausschalten variabler Verbraucher
+								case "04" : $this->SetValue("customer", 4); break; // Einschalten variabler Verbraucher
 							}
 						}
-						/*
-						if(isset($valueData["getPH1_1_B1"]))
-						{
-							switch($valueData["getPH1_1_B1"])
-							{
-								case '6000' : $this->SetBuffer("ph", 1);break;
-								case '8080' : 
-									switch($this->GetValue("stateBM"))
-									{
-										case 1 : $this->SetBuffer("ph", 0);break;
-										case 2 : $this->SetBuffer("ph", 2);break;
-									}
-								break;
-							}
-							$this->SendDebug("SetPH", $this->GetBuffer("ph"), 0);
-						}
-						if(isset($valueData["getPW1_1_B1"]))
-						{
-							switch($valueData["getPW1_1_B1"])
-							{
-								case '6000' : $this->SetBuffer("pw", 1);break;
-								case '8080' : $this->SetBuffer("pw", 0);break;
-							}
-							$this->SendDebug("SetPW", $this->GetBuffer("pw"), 0);
-						}
-						/*
-						/*
-						case "will" :
-							$valueData["will"] == "offline" && $this->GetValue("state") ? $this->SetValue("state", false) : 1;
-						break;
-						*/
 					break;
 				}
+			
+				/*
+				case "will" :
+					$valueData["will"] == "offline" && $this->GetValue("state") ? $this->SetValue("state", false) : 1;
+				break;
+				*/
 			}
 		}        
     }
@@ -752,7 +646,7 @@ class TFwolf extends IPSModule
         $data['PacketType'] 		= 3;
         $data['QualityOfService'] 	= 0;
         $data['Retain'] 			= false;
-		$data['Topic'] 				= "tfebus/cmnd/".$command;
+		$data['Topic'] 				= "tfebus1/cmnd/".$command;
         $data['Payload'] 			= strval($value);
         $dataJSON 					= json_encode($data,JSON_UNESCAPED_SLASHES);
 		$this->SendDebug("Sende", "Command: ".$command." - Value: ".$value, 0);
