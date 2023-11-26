@@ -646,7 +646,7 @@ class TFwolf extends IPSModule
         $data['PacketType'] 		= 3;
         $data['QualityOfService'] 	= 0;
         $data['Retain'] 			= false;
-		$data['Topic'] 				= "tfebus1/cmnd/".$command;
+		$data['Topic'] 				= $this->ReadPropertyString("deviceTopic")."/cmnd/".$command;
         $data['Payload'] 			= strval($value);
         $dataJSON 					= json_encode($data,JSON_UNESCAPED_SLASHES);
 		$this->SendDebug("Sende", "Command: ".$command." - Value: ".$value, 0);
